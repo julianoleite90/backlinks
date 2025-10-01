@@ -140,12 +140,26 @@ class BacklinkChecker:
                 'error': str(e)
             }
 
-# Inicializa o checker
-try:
-    checker = BacklinkChecker()
-except ValueError as e:
-    print(f"Erro de configuração: {e}")
-    checker = None
+# Inicializa o checker (será criado quando necessário)
+checker = None
+
+def get_checker():
+    """Obtém ou cria uma instância do checker"""
+    global checker
+    if checker is None:
+        try:
+            # Verifica se a variável de ambiente existe
+            api_token = os.getenv('SE_RANKING_API_TOKEN')
+            if not api_token:
+                print("❌ SE_RANKING_API_TOKEN não encontrada nas variáveis de ambiente")
+                return None
+            
+            checker = BacklinkChecker()
+            print("✅ BacklinkChecker inicializado com sucesso")
+        except Exception as e:
+            print(f"❌ Erro ao inicializar BacklinkChecker: {e}")
+            return None
+    return checker
 
 @app.route('/')
 def index():
@@ -155,7 +169,8 @@ def index():
 @app.route('/analyze', methods=['POST'])
 def analyze():
     """Endpoint para análise de backlinks"""
-    if not checker:
+    current_checker = get_checker()
+    if not current_checker:
         return jsonify({
             'success': False,
             'error': 'Sistema não configurado. Verifique a chave da API.'
@@ -171,15 +186,34 @@ def analyze():
         })
     
     # Analisa o domínio
-    result = checker.analyze_domain(domain)
+    result = current_checker.analyze_domain(domain)
     return jsonify(result)
 
 @app.route('/health')
 def health():
     """Endpoint de saúde da aplicação"""
+    current_checker = get_checker()
     return jsonify({
         'status': 'ok',
-        'api_configured': checker is not None
+        'api_configured': current_checker is not None,
+        'api_token_present': bool(os.getenv('SE_RANKING_API_TOKEN'))
+    })
+
+@app.route('/debug')
+def debug():
+    """Endpoint de debug para verificar configuração"""
+    return jsonify({
+        'environment_variables': {
+            'SE_RANKING_API_TOKEN': '***' if os.getenv('SE_RANKING_API_TOKEN') else 'NOT_SET',
+            'PYTHONPATH': os.getenv('PYTHONPATH', 'NOT_SET')
+        },
+        'checker_status': 'OK' if get_checker() else 'ERROR',
+        'working_directory': os.getcwd(),
+        'files_present': {
+            'app.py': os.path.exists('app.py'),
+            'templates/index.html': os.path.exists('templates/index.html'),
+            'requirements.txt': os.path.exists('requirements.txt')
+        }
     })
 
 # Para desenvolvimento local
