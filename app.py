@@ -182,8 +182,13 @@ def health():
         'api_configured': checker is not None
     })
 
+# Para desenvolvimento local
 if __name__ == '__main__':
     print("🚀 Iniciando Backlink Checker Web App...")
     print("🌐 Acesse: http://localhost:9999")
     print("="*50)
     app.run(debug=True, host='0.0.0.0', port=9999)
+
+# Para produção no Vercel
+if __name__ == '__main__':
+    app.run()
